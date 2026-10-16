@@ -141,8 +141,28 @@ const localWindowsPrefs = () => ({
 
 const cliArgs = process.argv.slice(app.isPackaged ? 1 : 2);
 const isCaptureArg = (argv) => Array.isArray(argv) && argv.some((a) => a === '--capture' || a === '-c' || a === 'capture');
-let captureRequestedByCli = isCaptureArg(cliArgs);
+const isVersionArg = (argv) => Array.isArray(argv) && argv.some((a) => a === '--version' || a === '-v' || a === 'version');
+const isHelpArg = (argv) => Array.isArray(argv) && argv.some((a) => a === '--help' || a === '-h' || a === 'help');
 
+if (isVersionArg(process.argv) || isVersionArg(cliArgs)) {
+    const pkg = require('../package.json');
+    console.log(pkg.version || app.getVersion());
+    process.exit(0);
+}
+
+if (isHelpArg(process.argv) || isHelpArg(cliArgs)) {
+    const pkg = require('../package.json');
+    const version = pkg.version || app.getVersion();
+    console.log(`screenShotik v${version}
+Использование:
+  screenshotik            Запуск приложения (сворачивается в трей)
+  screenshotik --capture  Сделать снимок экрана
+  screenshotik --version  Показать версию
+  screenshotik --help     Показать эту справку`);
+    process.exit(0);
+}
+
+let captureRequestedByCli = isCaptureArg(cliArgs);
 // Только одно приложение может быть запущено в один момент.
 // Второй экземпляр (например, из бинда Hyprland) просто передаёт запрос
 // уже запущенному через requestSingleInstanceLock.
@@ -473,12 +493,13 @@ if (!gotLock) {
     });
 
     ipcMain.on('close-main-window', (event, arg) => {
-        if (mainWindow !== null) {
+        if (mainWindow !== null && !mainWindow.isDestroyed()) {
             mainWindow.close();
-            checkForUpdates(10000);
-            if (platform === 'darwin') {
-                app.hide();
-            }
+        }
+        mainWindow = null;
+        checkForUpdates(10000);
+        if (platform === 'darwin') {
+            app.hide();
         }
     });
 
@@ -492,12 +513,13 @@ if (!gotLock) {
     });
 
     ipcMain.on('destroy-main-window', (event, arg) => {
-        if (mainWindow !== null) {
+        if (mainWindow !== null && !mainWindow.isDestroyed()) {
             mainWindow.close();
-            checkForUpdates(10000);
-            if (platform === 'darwin') {
-                app.hide();
-            }
+        }
+        mainWindow = null;
+        checkForUpdates(10000);
+        if (platform === 'darwin') {
+            app.hide();
         }
     });
 
@@ -572,11 +594,8 @@ if (!gotLock) {
         });
         // Emitted when the window is closed.
         mainWindow.on('closed', () => {
-            if (mainWindow) {
-                logger.info('closed');
-                mainWindow.destroy();
-                mainWindow = null;
-            }
+            logger.info('closed');
+            mainWindow = null;
         });
 
         mainWindow.on('show', function () {
@@ -591,8 +610,10 @@ if (!gotLock) {
 
     let makeScreenShot = () => {
         if (authenticated || global.conf.get('allowLocalWithoutAuth')) {
+            if (mainWindow && mainWindow.isDestroyed()) {
+                mainWindow = null;
+            }
             if (mainWindow === null) {
-                StopWatch.start('screen');
                 let display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
                 logger.info(JSON.stringify(screen.getAllDisplays()));
                 logger.info(JSON.stringify(display));
@@ -969,26 +990,23 @@ if (!gotLock) {
         // на macOS пересоздаём окно по клику на иконку в доке
     });
 
-    app.on('will-quit', (event) => {
+    app.on('will-quit', () => {
         logger.info("will quit");
-        if (quitRequested) {
-            globalShortcut.unregisterAll()
-        } else {
-            event.preventDefault();
-        }
+        globalShortcut.unregisterAll();
     });
 
     app.on('browser-window-blur', function (e) {
         logger.info('browser-window-blur');
-        if (e.sender && e.sender === mainWindow && global.conf.get('cancelOnBlur') && (authenticated || quitRequested) && !(history && !history.isDestroyed() && history.isFocused()) && !(changeLog && !changeLog.isDestroyed() && changeLog.isFocused())) {
-            if (mainWindow !== null) {
-                mainWindow.webContents.send('destroy', {one: true});
-            }
+        if (e.sender && mainWindow && !mainWindow.isDestroyed() && e.sender === mainWindow && global.conf.get('cancelOnBlur') && (authenticated || quitRequested) && !(history && !history.isDestroyed() && history.isFocused()) && !(changeLog && !changeLog.isDestroyed() && changeLog.isFocused())) {
+            mainWindow.webContents.send('destroy', {one: true});
         }
     });
 
-    process.on("SIGINT", () => {
-        logger.info("Caught SIGINT. Exiting in 5 seconds.");
+    const handleExit = (signal) => {
+        logger.info(`Caught ${signal}. Exiting.`);
         quitRequested = true;
-    });
+        app.quit();
+    };
+    process.on("SIGINT", () => handleExit("SIGINT"));
+    process.on("SIGTERM", () => handleExit("SIGTERM"));
 }

@@ -12,11 +12,10 @@
 
 ### Вариант 1. Клонирование из GitHub
 ```bash
-git clone https://github.com/ВАШ_ЛОГИН/megagroup-linux-setup.git
+git clone https://github.com/Server-1205/megagroup-linux-setup.git
 cd megagroup-linux-setup
 sudo ./install.sh
 ```
-
 ### Вариант 2. Тихая установка (без вопросов)
 ```bash
 sudo ./install.sh --unattended
