@@ -310,67 +310,28 @@ if (!gotLock) {
     let contextMenu = null;
     let shown = false;
     let pwd;
-    let capturer;
-    let createCapturer = (callback) => {
-        capturer = new BrowserWindow(
-            {
-                show: false,
-                webPreferences: localWindowsPrefs()
-            });
-        watchRenderer(capturer, 'capturer');
-        capturer.on('ready-to-show', () => {
-            logger.info('screen html ready to show');
-            if (callback) {
-                callback();
-            }
-        });
-        capturer.on('close', () => {
-            capturer = null;
-            logger.info('screen html closed');
-        });
-        capturer.loadURL(`file://${__dirname}/screen.html`);
-    };
-    // Захват идёт в скрытом окне до показа оверлея: раньше окно создавалось
-    // параллельно со снимком, и wlroots/XWayland в этом случае могли
-    // не отдать кадр (grim зависал). Теперь это строго последовательно.
-    let doDedicatedCapture = (display) => {
-        return new Promise((resolve, reject) => {
-            screenTmpFile = null;
-            const timer = setTimeout(() => {
-                reject(new Error('Таймаут захвата экрана (' + captureTimeout + ' мс)'));
-            }, captureTimeout);
+    const {capture} = require('./capture');
+    const {pathToFileURL} = require('url');
 
-            ipcMain.once('screen-tmp-file-ready', (event, opts) => {
-                clearTimeout(timer);
-                if (mainWindowReadyToShow && mainWindow) {
-                    mainWindow.webContents.send('screen-from-file', {
-                        file: opts.filename,
-                        display: opts.display,
-                        cursor: screen.getCursorScreenPoint()
-                    });
-                } else {
-                    screenTmpFile = opts.filename;
-                }
-                resolve();
-            });
-            ipcMain.once('capture-failed', (event, opts) => {
-                clearTimeout(timer);
-                reject(new Error((opts && opts.message) || 'захват не удался'));
-            });
-
-            const send = () => capturer.webContents.send(
-                'make-screen',
-                {
+    let doDedicatedCapture = async (display) => {
+        screenTmpFile = null;
+        try {
+            const saveDir = global.conf.get('saveDir') || require('os').tmpdir();
+            const file = await capture(display, saveDir);
+            const fileUrl = pathToFileURL(file).href;
+            if (mainWindowReadyToShow && mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('screen-from-file', {
+                    file: fileUrl,
                     display: display,
-                    platform: platform
-                }
-            );
-            if (!capturer || capturer.isDestroyed()) {
-                createCapturer(send);
+                    cursor: screen.getCursorScreenPoint()
+                });
             } else {
-                send();
+                screenTmpFile = fileUrl;
             }
-        });
+        } catch (e) {
+            logger.error('Capture error:', e);
+            throw e;
+        }
     };
 
     let mainWindowOnShow = () => {
@@ -593,6 +554,7 @@ if (!gotLock) {
             if (callback) callback();
         });
         // Emitted when the window is closed.
+        // Emitted when the window is closed.
         mainWindow.on('closed', () => {
             logger.info('closed');
             mainWindow = null;
@@ -756,10 +718,6 @@ if (!gotLock) {
             global.conf.set('version', app.getVersion());
         }
 
-        //if (global.conf.get('dedicatedCapturer')){
-        createCapturer(() => {
-        });
-        //}
 
         let trayImage = '';
         let imageFolder = `${__dirname}/icon/icons/tray`;

@@ -43,15 +43,25 @@ const captureTool = () => {
     return which('grim');
 };
 
+const resolveDir = (saveDir) => {
+    if (!saveDir) return require('os').tmpdir();
+    if (saveDir.startsWith('~/')) {
+        return path.join(require('os').homedir(), saveDir.slice(2));
+    }
+    return saveDir;
+};
+
 const writeTmp = (saveDir, buffer) => {
-    const file = path.join(saveDir, '_tmpScreen.png');
+    const dir = resolveDir(saveDir);
+    const file = path.join(dir, '_tmpScreen.png');
     fs.mkdirSync(path.dirname(file), {recursive: true});
     fs.writeFileSync(file, buffer);
     return file;
 };
 
 const tmpPath = (saveDir) => {
-    const file = path.join(saveDir, '_tmpScreen.png');
+    const dir = resolveDir(saveDir);
+    const file = path.join(dir, '_tmpScreen.png');
     fs.mkdirSync(path.dirname(file), {recursive: true});
     return file;
 };
