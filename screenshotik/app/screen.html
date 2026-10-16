@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script>
+        const {ipcRenderer} = require('electron');
+        const {pathToFileURL} = require('url');
+        const log = require('./log');
+        const conf = require('./conf');
+        const {capture} = require('./capture');
+        const StopWatch = require('./stopwatch');
+        log.info('loading - screen html js');
+
+        const makeScreen = async (event, opts) => {
+            log.info('make Screen start');
+            const display = opts.display;
+            StopWatch.start('Screen-Capture');
+            try {
+                const file = await capture(display, conf.get('saveDir'));
+                log.info(StopWatch.end('Screen-Capture').toString());
+                const fileUrl = pathToFileURL(file).href;
+                log.info('screen captured: ' + fileUrl);
+                ipcRenderer.send('screen-tmp-file-ready', {
+                    filename: fileUrl,
+                    display: display
+                });
+            } catch (e) {
+                log.error(StopWatch.end('Screen-Capture').toString());
+                log.error('capture failed', e);
+                ipcRenderer.send('capture-failed', {
+                    message: (e && e.message) ? e.message : String(e)
+                });
+            }
+        };
+
+        ipcRenderer.on('make-screen', makeScreen);
+        log.info('loading done - screen html js');
+    </script>
+</head>
+<body>
+</body>
+</html>

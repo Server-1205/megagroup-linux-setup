@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Автоматическое обновление</title>
+</head>
+<body>
+Текущая версия: <span id="version">vX.Y.Z</span>
+<div id="messages"></div>
+<button onclick="ipcRenderer.send('cancel-update',{});" style="color:red;">Отменить обновление</button>
+<script>
+    // Display the current version
+    let version = window.location.hash.substring(1);
+    document.getElementById('version').innerText = version;
+    // Listen for messages
+    const {ipcRenderer} = require('electron');
+    ipcRenderer.on('message', function(event, text) {
+        var container = document.getElementById('messages');
+        /*var message = document.createElement('div');
+        message.innerHTML = text;*/
+        container.innerHTML = text;
+    });
+</script>
+</body>
+</html>

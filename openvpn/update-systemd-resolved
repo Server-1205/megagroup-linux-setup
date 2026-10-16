@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# /etc/openvpn/update-systemd-resolved
+# Интеграция DNS OpenVPN с systemd-resolved (resolvectl / busctl)
+# Поддерживает up / down хуки OpenVPN
+
+set -eu
+
+SCRIPT_NAME="${0##*/}"
+
+resolvectl_bin="$(command -v resolvectl || command -v systemd-resolve || true)"
+
+if [[ -z "$resolvectl_bin" ]]; then
+    # systemd-resolved не используется или отсутствует, выход без ошибки
+    exit 0
+fi
+
+case "${script_type:-}" in
+    up)
+        dns_servers=()
+        dns_domains=()
+
+        # Парсинг опций DHCP, переданных OpenVPN
+        for opt in $(env | grep -E '^foreign_option_[0-9]+=' | sort -V | cut -d= -f2-); do
+            part1="$(echo "$opt" | awk '{print $1}')"
+            part2="$(echo "$opt" | awk '{print $2}')"
+            part3="$(echo "$opt" | awk '{print $3}')"
+
+            if [[ "$part1" == "dhcp-option" ]]; then
+                if [[ "$part2" == "DNS" ]] && [[ -n "$part3" ]]; then
+                    dns_servers+=("$part3")
+                elif [[ "$part2" == "DOMAIN" || "$part2" == "DOMAIN-SEARCH" ]] && [[ -n "$part3" ]]; then
+                    dns_domains+=("$part3")
+                elif [[ "$part2" == "DOMAIN-ROUTE" ]] && [[ -n "$part3" ]]; then
+                    dns_domains+=("~$part3")
+                fi
+            fi
+        done
+
+        if [[ ${#dns_servers[@]} -gt 0 ]]; then
+            "$resolvectl_bin" dns "$dev" "${dns_servers[@]}"
+        fi
+
+        if [[ ${#dns_domains[@]} -gt 0 ]]; then
+            "$resolvectl_bin" domain "$dev" "${dns_domains[@]}"
+        fi
+
+        # Маршрутизировать DNS через туннельный интерфейс
+        "$resolvectl_bin" default-route "$dev" true 2>/dev/null || true
+        ;;
+
+    down)
+        "$resolvectl_bin" revert "$dev" 2>/dev/null || true
+        ;;
+esac
+
+exit 0

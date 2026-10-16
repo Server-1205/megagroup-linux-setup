@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Единый переключатель Megagroup VPN в 1 клик для Linux (Omarchy / Hyprland)
+set -euo pipefail
+
+ACTION="${1:-toggle}"
+
+is_active() {
+    nmcli -t -f NAME,TYPE,STATE connection show --active 2>/dev/null | grep -q "^megagroup:vpn:activated"
+}
+
+case "$ACTION" in
+    start|up|connect|on)
+        echo "Подключение к Megagroup OpenVPN..."
+        nmcli connection up megagroup
+        notify-send "Megagroup VPN" "Корпоративная сеть успешно подключена" --icon=network-vpn 2>/dev/null || true
+        ;;
+    stop|down|disconnect|off)
+        echo "Отключение Megagroup OpenVPN..."
+        nmcli connection down megagroup
+        notify-send "Megagroup VPN" "Корпоративная сеть отключена" --icon=network-vpn-offline 2>/dev/null || true
+        ;;
+    toggle)
+        if is_active; then
+            echo "VPN активен, отключаем..."
+            nmcli connection down megagroup
+            notify-send "Megagroup VPN" "Корпоративная сеть отключена" --icon=network-vpn-offline 2>/dev/null || true
+        else
+            echo "VPN отключен, подключаем..."
+            nmcli connection up megagroup
+            notify-send "Megagroup VPN" "Корпоративная сеть успешно подключена" --icon=network-vpn 2>/dev/null || true
+        fi
+        ;;
+    status)
+        if is_active; then
+            echo "Статус: ПОДКЛЮЧЕНО"
+            ip a show dev tun0 2>/dev/null | grep "inet " || true
+        else
+            echo "Статус: ОТКЛЮЧЕНО"
+        fi
+        ;;
+    *)
+        echo "Использование: megagroup-vpn [start|stop|toggle|status]"
+        exit 1
+        ;;
+esac

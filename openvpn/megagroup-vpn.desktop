@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Megagroup VPN (Подключить/Отключить)
+Comment=Быстрое переключение корпоративного OpenVPN Megagroup в 1 клик
+Exec=/home/server/.local/bin/megagroup-vpn toggle
+Icon=network-vpn
+Terminal=false
+Categories=Network;System;

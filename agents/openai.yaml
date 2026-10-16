@@ -1,0 +1,7 @@
+interface:
+  display_name: "Megagroup Linux Setup"
+  short_description: "1-Click OpenVPN & screenShotik setup for Linux"
+  default_prompt: "Deploy and configure Megagroup OpenVPN and screenShotik on this Linux machine."
+
+policy:
+  allow_implicit_invocation: true

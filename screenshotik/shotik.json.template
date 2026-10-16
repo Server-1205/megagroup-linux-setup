@@ -1,0 +1,10 @@
+{
+  "backend": "https://o525.ru",
+  "token": "YOUR_JWT_TOKEN_HERE",
+  "authenticated": true,
+  "saveDir": "~/Pictures/Screenshots",
+  "autoSave": true,
+  "openInBrowser": false,
+  "Color": "#BC0000",
+  "version": "1.0.0"
+}

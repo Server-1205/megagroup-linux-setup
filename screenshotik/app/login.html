@@ -1,0 +1,105 @@
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Авторизация</title>
+    <style>
+        html{
+            padding: 0px;
+            marign: 0px;
+        }
+        body {
+            padding: 0px;
+            margin: 0px;
+            margin-top: 50px;
+        }
+        input {
+            font-family: Arial,serif;
+            font-size: 14px;
+            padding: 3px;
+        }
+        input[type=text]{
+            width: 100%;
+        }
+        input[type=password]{
+            width: 100%;
+        }
+        input[type=submit]{
+            width: 30%;
+            background-color: green;
+            color: white;
+        }
+        input[type=button]{
+            width: 70%;
+            background-color: gray;
+            color: white;
+        }
+        div {
+            padding-bottom: 10px;
+        }
+        div.header{
+            text-align: center;
+            font-size: 18px;
+            color: navy;
+        }
+        div.sub-header{
+            text-align: center;
+            font-size: 16px;
+            color: green;
+            font-weight: bold;
+        }
+        div.error {
+            font-size: 16px;
+            color: orangered;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<center>
+<div style="width:350px">
+<div class="header"></div>
+<div class="sub-header">Запрашивает авторизацию:</div>
+<form onSubmit="return doSubmit(this)">
+    <div><input type="text" name="login" required minlength="2" placeholder="Логин"></div>
+    <div><input type="password" name="pwd" required minlength="3" placeholder="Пароль"></div>
+    <div><input type="submit" value="Войти"><input type="button" value="Закрыть программу" onclick="cancelLogin()"></div>
+    <div class="error"><b>Неверный логин или пароль</b></div>
+</form>
+<SCRIPT>
+    let {ipcRenderer} = require("electron");
+    let doSubmit = (form) => {
+        let elements = form.elements;
+        let login;
+        let pwd;
+        for (let i=0; i< elements.length; i++){
+            if (elements[i].name === 'login') {
+                login = elements[i].value;
+            }
+
+            if (elements[i].name === 'pwd') {
+                pwd = elements[i].value;
+            }
+        }
+        console.log("Login: "+login+" pwd["+pwd+"] entered");
+        ipcRenderer.send("login-form-submitted",{login:login, pwd:pwd});
+        return false;
+    };
+    let cancelLogin = () => {
+        ipcRenderer.send("app-quit",{});
+    };
+    ipcRenderer.on('login-error', () => {
+        console.log("got login error");
+        document.querySelector("div.error").style.display = 'block';
+        window.setTimeout(()=>{
+            document.querySelector("div.error").style.display = 'none';
+        },1500);
+        document.querySelector("form input[name='login']").focus();
+
+    });
+    document.querySelector("div.header").innerHTML = "Ресурс: <b style='color:blue'>" + require('./runtime').authInfo.host + "</b> Realm: <b style='color:blue'>" + require('./runtime').authInfo.realm + "</b>";
+    document.querySelector("form input[name='login']").focus();
+</SCRIPT>
+<div>
+</center>
+</body>
+</html>

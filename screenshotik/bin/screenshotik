@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# screenShotik wrapper for Linux (X11 & Wayland / Hyprland / Omarchy)
+# ==============================================================================
+
+set -euo pipefail
+
+# Candidate locations for screenShotik installation
+POSSIBLE_DIRS=(
+    "/usr/local/share/screenShotik"
+    "/opt/screenShotik"
+    "${HOME}/.local/share/screenShotik"
+)
+
+APP_DIR=""
+for d in "${POSSIBLE_DIRS[@]}"; do
+    if [[ -x "${d}/screenshotik" || -x "${d}/screenShotik" || -f "${d}/resources/app.asar" ]]; then
+        APP_DIR="${d}"
+        break
+    fi
+done
+
+if [[ -z "${APP_DIR}" ]]; then
+    # Fallback to current directory or system electron
+    if command -v electron &>/dev/null; then
+        for asar in "/usr/local/share/screenShotik/resources/app.asar" "${HOME}/.local/share/screenShotik/resources/app.asar"; do
+            if [[ -f "${asar}" ]]; then
+                exec electron "${asar}" --no-sandbox --no-zygote "$@"
+            fi
+        done
+    fi
+    echo "Error: screenShotik installation not found in ${POSSIBLE_DIRS[*]}" >&2
+    exit 1
+fi
+
+BIN=""
+if [[ -x "${APP_DIR}/screenshotik" ]]; then
+    BIN="${APP_DIR}/screenshotik"
+elif [[ -x "${APP_DIR}/screenShotik" ]]; then
+    BIN="${APP_DIR}/screenShotik"
+elif command -v electron &>/dev/null && [[ -f "${APP_DIR}/resources/app.asar" ]]; then
+    exec electron "${APP_DIR}/resources/app.asar" --no-sandbox --no-zygote "$@"
+else
+    echo "Error: no executable binary found in ${APP_DIR}" >&2
+    exit 1
+fi
+
+# Ozone platform detection for Wayland
+OZONE_FLAGS=()
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    OZONE_FLAGS=(
+        "--ozone-platform=wayland"
+        "--disable-gpu-compositing"
+    )
+fi
+
+exec "${BIN}" --no-sandbox --no-zygote "${OZONE_FLAGS[@]}" "$@"

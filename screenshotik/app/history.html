@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>История изменений</title>
+    <style>
+        html, body {
+            margin: 0px;
+            padding: 0px;
+        }
+        body * {
+
+            font-family: Arial,Verdana,serif;
+        }
+
+        h1 {
+            font-size: 18px;
+        }
+        h3 {
+            font-size: 14px;
+        }
+        li {
+            font-size: 10px;
+        }
+        .row {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .thumb {
+            max-width:300px;
+        }
+
+        .thumb-wrapper {
+            display: inline-block;
+            width: 310px;
+            font-size: 0;
+        }
+
+        .checkbox-wrapper {
+            padding: 20px;
+            display: inline-block;
+            font-size: 0;
+        }
+
+        .buttons-wrapper {
+            padding: 20px;
+            display: inline-block;
+            font-size: 0;
+        }
+
+        .time {
+            font-family: Arial;
+            font-size: 12px;
+        }
+
+        .time-wrapper  {
+            display: inline-block;
+            font-size: 0;
+            min-width:150px
+        }
+
+        .date-splitter {
+            font-size: 14px;
+            font-weight: bold;
+            padding-top: 15px;
+            border-bottom: 1px solid black;
+            margin-bottom: 5px;
+        }
+
+        .time-splitter {
+
+        }
+
+        .sticky {
+            position: fixed;
+            padding: 5px;
+            top: 0;
+            width: 100%;
+            background-color: royalblue;
+            color: white;
+            z-index: 10000;
+        }
+
+        button {
+            padding: 5px;
+            margin: 5px;
+        }
+
+        input[type=checkbox] {
+            transform: scale(3);
+        }
+
+    </style>
+</head>
+<body>
+<div class="sticky">
+    <div>Выбрано: <span class="amount">0</span></div>
+    <div>скопировать в буфер выбранные: <button data-action="copy-links">Ссылки</button><button data-action="copy-pngs">Ссылки на png</button></div>
+    <div>открыть в браузере выбранные: <button data-action="open-links">Ссылки</button><button data-action="open-pngs">png на сервере</button><button data-action="open-pngs-local">png с диска</button></div>
+</div>
+<div style="padding:10px">
+<h1>Локальная история</h1>
+    <div id="history">
+    </div></div>
+<button onClick="closeMe()">Закрыть</button>
+    <script>
+
+        let {ipcRenderer,shell,clipboard} =require('electron');
+        const conf = require('./conf');
+        let {db} = require('./storage');
+        const log = require('./log');
+        const StopWatch = require('./stopwatch');
+        let el = document.querySelector("#history");
+        let panel = document.querySelector(".sticky");
+        let selected = new Map();
+
+        function updatePanel(){
+            panel.querySelector('.amount').innerText = selected.size+"";
+            if (selected.size === 0){
+                panel.style.display = 'none'
+                document.body.style.marginTop= '0px';
+            } else {
+                panel.style.display = 'block';
+                document.body.style.marginTop = '100px';
+            }
+        }
+
+        updatePanel();
+        function doPanelAction(e){
+            if (selected.size&&e.target.dataset.action) {
+                let _ = e.target;
+                let action = e.target.dataset.action;
+                let i = 1;
+                let values = [];
+                selected.forEach((value,k,m)=>{
+                   values.push(Number(value));
+                });
+
+                let backend = conf.get('backend');
+                let buffer = {};
+                let coppied = 0;
+                let text = "";
+                db.history.where('id').anyOf(values).each((item) => {
+                    switch (action) {
+                        case 'copy-links':
+                            if (item.url) {
+                                if (coppied>0) text +="\n";
+                                text += backend + "/" + item.url;
+                                coppied++;
+                            }
+                            if (i === selected.size){
+                                if (coppied > 0) {
+                                    ipcRenderer.send('writeTextToClipboard', text);
+                                    ipcRenderer.send("notification", {
+                                        title: "Ссылки скопированы в буфер",
+                                        body: "ссылок на скриншоты скопировано: " + coppied,
+                                    });
+                                } else {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ошибка",
+                                        body: "выбраны только локальные скриншоты",
+                                    });
+                                }
+                            }
+                            break;
+                        case 'copy-pngs':
+                            if (item.image_url) {
+                                if (coppied>0) text +="\n";
+                                text += backend + "/i" + item.image_url;
+                                coppied++;
+                            }
+                            if (i === selected.size && coppied > 0){
+                                ipcRenderer.send('writeTextToClipboard', text);
+                                if (coppied > 0) {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ссылки на PNG скопированы в буфер",
+                                        body: "ссылок на PNG скриншоты скопировано: " + coppied,
+                                    });
+                                } else {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ошибка",
+                                        body: "выбраны только локальные скриншоты",
+                                    });
+                                }
+                            }
+                            break;
+                        case 'open-links':
+                            if (item.url) {
+                                coppied++;
+                                shell.openExternal(conf.get('backend') + "/" + item.url, {activate: false});
+                            }
+                            if (i===selected.size) {
+                                if (coppied > 0) {
+                                    ipcRenderer.send("notification", {
+                                        title: "Открыто в браузуре",
+                                        body: "скриншотов: " + coppied,
+                                    });
+                                } else {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ошибка",
+                                        body: "выбраны только локальные скриншоты",
+                                    });
+                                }
+                            }
+                            break;
+                        case 'open-pngs':
+                            if (item.image_url) {
+                                coppied++;
+                                shell.openExternal(conf.get('backend') + "/i" + item.image_url, {activate: false});
+                            }
+                            if (i===selected.size) {
+                                if (coppied > 0) {
+                                    ipcRenderer.send("notification", {
+                                        title: "Открыто в браузуре",
+                                        body: "PNG скриншотов: " + coppied,
+                                    });
+                                } else {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ошибка",
+                                        body: "выбраны только локальные скриншоты",
+                                    });
+                                }
+                            }
+                            break;
+                        case 'open-pngs-local':
+                            if (item.file) {
+                                coppied++;
+                                shell.openExternal('file://'+item.file, {activate: false});
+                            }
+                            if (i===selected.size) {
+                                if (coppied > 0) {
+                                    ipcRenderer.send("notification", {
+                                        title: "Открыто в браузуре",
+                                        body: "PNG скриншотов с диска: " + coppied,
+                                    });
+                                } else {
+                                    ipcRenderer.send("notification", {
+                                        title: "Ошибка",
+                                        body: "выбраны скриншоты у которых копий на диске",
+                                    });
+                                }
+                            }
+                            break;
+
+                    }
+                    i++;
+                });
+            }
+        }
+
+        function doAction(e){
+            if (e.target.dataset.action && e.target.dataset.id){
+                let _ = e.target;
+                let action = e.target.dataset.action;
+                let id = e.target.dataset.id;
+                log.info(id);
+                db.history.get({id:Number(id)}).then((item)=>{
+                    log.info(item);
+                    switch (action) {
+                        case 'check':
+                            if (_.checked){
+                                    selected.set(id,id);
+                                    updatePanel();
+                            } else {
+                                selected.delete(id);
+                                updatePanel();
+                            }
+                            break;
+                        case 'open-url':
+                            shell.openExternal(conf.get('backend') + "/" + item.url);
+                        break;
+                        case 'open-png':
+                            shell.openExternal(item.file?'file://'+item.file:conf.get('backend')+"/i"+item.image_url);
+                        break;
+                        case 'show-folder':
+                            shell.showItemInFolder(item.file);
+                        break;
+                    }
+                });
+            }
+        }
+
+        el.onclick = doAction;
+        panel.onclick = doPanelAction;
+
+        //let document.body.onclick = {};
+
+        let dateOptions = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+        };
+
+        ipcRenderer.on('history-updated',()=>{
+            loadAtTop();
+        });
+
+        let drawRecordRow = (record) => {
+            let row = document.createElement('div');
+            row.className = "row";
+            let thumbWrapper = document.createElement('div');
+            thumbWrapper.className = 'thumb-wrapper';
+            let checkboxWrapper = document.createElement('div');
+            checkboxWrapper.className = 'checkbox-wrapper';
+            let buttonsWrapper = document.createElement('div');
+            buttonsWrapper.className = 'buttons-wrapper';
+            row.appendChild(thumbWrapper);
+            row.appendChild(checkboxWrapper);
+            row.appendChild(buttonsWrapper);
+            let image = document.createElement('img');
+            image.src = (record.file?'file://'+record.file:conf.get('backend')+"/i"+record.image_url);
+            if (record.file&&record.image_url) {
+                image.onerror = () => {
+                    image.src = conf.get('backend')+"/i"+record.image_url;
+                }
+            }
+            image.width = record.width;
+            image.className = 'thumb';
+            let checkBox = document.createElement('input');
+            checkBox.type = 'checkbox';
+            checkBox.dataset.id = record.id;
+            checkBox.dataset.action = 'check';
+
+            let button;
+            if (record.url) {
+                button = document.createElement('button');
+                button.innerHTML = 'открыть в браузере';
+                button.dataset.id = record.id;
+                button.dataset.action = 'open-url';
+                buttonsWrapper.appendChild(button);
+            } else {
+                button = document.createElement('button');
+                button.innerHTML = 'залить на сервер';
+                button.dataset.id = record.id;
+                button.dataset.action = 'upload';
+                button.disabled = 'disabled';
+                buttonsWrapper.appendChild(button);
+            }
+
+            button = document.createElement('button');
+            button.innerHTML = 'открыть png в браузере';
+            button.dataset.id = record.id;
+            button.dataset.action = 'open-png';
+            buttonsWrapper.appendChild(button);
+
+            if (record.file) {
+                button = document.createElement('button');
+                button.innerHTML = 'показать фаил в папке';
+                button.dataset.id = record.id;
+                button.dataset.action = 'show-folder';
+                buttonsWrapper.appendChild(button);
+            } else {
+                button = document.createElement('button');
+                button.innerHTML = 'скачать с сервера в локальную папку';
+                button.dataset.id = record.id;
+                button.dataset.action = 'download';
+                button.disabled = 'disabled';
+                buttonsWrapper.appendChild(button);
+            }
+
+            if (record.url) {
+                button = document.createElement('button');
+                button.innerHTML = 'удалить с сервера';
+                button.dataset.id = record.id;
+                button.dataset.action = 'remove-from-server';
+                button.disabled = 'disabled';
+                buttonsWrapper.appendChild(button);
+            } else {
+                button = document.createElement('button');
+                button.innerHTML = 'удалить c диска и из истории';
+                button.dataset.id = record.id;
+                button.dataset.action = 'remove-from-history';
+                button.disabled = 'disabled';
+                buttonsWrapper.appendChild(button);
+            }
+
+
+            thumbWrapper.appendChild(image);
+            checkboxWrapper.appendChild(checkBox);
+            return row;
+        };
+
+        let lastDate;
+        let firstDate;
+        let lastTime;
+        let lastId;
+        let firstId;
+        let firstDateEl;
+
+        db.history.reverse().limit(10).each((item)=>{
+            //let pr = document.createElement('pre');
+            //pr.innerText = JSON.stringify(item);
+            let localeDate = new Date(item.date).toLocaleString('ru',dateOptions);
+
+            if (lastDate !== localeDate) {
+                let _ = document.createElement('div');
+
+                _.className = "date-splitter";
+                _.innerText = new Date(item.date).toLocaleString('ru', dateOptions);
+                el.appendChild(_);
+                if (!firstDate) {
+                    firstDate = localeDate;
+                    _.id = 'firstDate';
+                    firstDateEl = _;
+                }
+
+                lastDate = localeDate;
+            }
+            if (!firstId) {
+                firstId = item.id;
+            }
+
+            lastId = item.id;
+            el.appendChild(drawRecordRow(item));
+        });
+
+        function closeMe() {
+            ipcRenderer.send('close-history',{});
+        }
+
+        function openInBrowser(obj) {
+
+        }
+
+        let fetchingData = false;
+
+        function loadAtBottom() {
+
+            db.history.where('id').below(lastId).reverse().each((item)=>{
+                //let pr = document.createElement('pre');
+                //pr.innerText = JSON.stringify(item);
+                let localeDate = new Date(item.date).toLocaleString('ru',dateOptions);
+                if (lastDate !== localeDate) {
+                    let _ = document.createElement('div');
+                    _.className = "date-splitter";
+                    _.innerText = new Date(item.date).toLocaleString('ru', dateOptions);
+                    el.appendChild(_);
+                    lastDate = localeDate;
+                }
+                el.appendChild(drawRecordRow(item));
+                lastId=item.id;
+            }).then(()=>{
+                fetchingData = false;
+            });
+
+        }
+
+        function loadAtTop() {
+            log.info('loadAtTop');
+            db.history.where('id').above(firstId).each((item)=>{
+                log.info(item);
+                let firstChild = el.firstElementChild;
+                if (firstChild) {
+                    el.insertBefore(drawRecordRow(item),firstChild);
+                } else {
+                    el.appendChild(drawRecordRow(item));
+                }
+                let localeDate = new Date(item.date).toLocaleString('ru',dateOptions);
+                log.info(localeDate);
+                log.info(firstDate);
+                if (firstDate === localeDate) {
+                    log.info('removing');
+                    firstDateEl.remove();
+                }
+                let _ = document.createElement('div');
+                _.className = "date-splitter";
+                _.innerText = new Date(item.date).toLocaleString('ru',dateOptions);
+                firstDate = localeDate;
+                firstId = item.id;
+                el.insertBefore(_,el.firstElementChild);
+                firstDateEl = _;
+                log.info('cool');
+            });
+        }
+
+        function getDistFromBottom () {
+            var scrollPosition = window.pageYOffset;
+            var windowSize     = window.innerHeight;
+            var bodyHeight     = document.body.offsetHeight;
+            return Math.max(bodyHeight - (scrollPosition + windowSize), 0);
+        }
+
+        let distToBottom;
+        document.addEventListener('scroll', function() {
+            distToBottom = getDistFromBottom();
+            //console.log('scrolling', getDistFromBottom());
+            //console.log(window.pageYOffset);
+            if (!fetchingData && distToBottom > 0 && distToBottom <= 8888) {
+                fetchingData = true;
+                loadAtBottom();
+            }
+        });
+
+    </script>
+</body>
+</html>

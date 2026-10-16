@@ -1,0 +1,56 @@
+{
+  "name": "screenshotik",
+  "productName": "screenShotik",
+  "version": "0.2.4",
+  "description": "Extremely screenshooting app — порт под Linux",
+  "main": "app/main.js",
+  "author": "Dennis Fyodorov <dennis.fyodorov@gmail.com> (https://megagroup.ru)",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux AppImage",
+    "dist:all": "electron-builder --linux dir AppImage"
+  },
+  "dependencies": {
+    "dexie": "^4.4.6",
+    "fs-extra": "^11.3.0"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ru.megagroup.screenshotik",
+    "productName": "screenShotik",
+    "asar": true,
+    "compression": "normal",
+    "files": [
+      "app/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "dir"
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "synopsis": "Screenshot app",
+      "desktop": {
+        "entry": {
+          "Name": "screenShotik",
+          "Comment": "Screenshot app",
+          "Categories": "Utility;Graphics;",
+          "StartupWMClass": "screenShotik",
+          "X-GNOME-UsesNotifications": "true",
+          "MimeType": "image/png;"
+        }
+      }
+    }
+  }
+}

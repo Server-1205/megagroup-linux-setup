@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=screenShotik
+Comment=Screenshot app
+Exec=/home/server/.local/share/screenShotik/screenshotik
+Icon=screenShotik
+Terminal=false
+Categories=Utility;Graphics;
+StartupWMClass=screenShotik
+X-GNOME-UsesNotifications=true

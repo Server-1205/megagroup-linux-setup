@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MegaScreenShooter!</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- bower:css -->
+    <!-- endbower -->
+    <!-- bower:js -->
+    <!--<script src="bower_components/fabric.js/dist/fabric.min.js"></script>-->
+    <!-- endbower -->
+    <script>
+        const log = require('./log');
+        const StopWatch = require('./stopwatch');
+        StopWatch.start('loadFabricjs');
+    </script>
+    <script src="fabric.2.3.3.min.js"></script>
+    <script src="fabric.extensions.js"></script>
+    <script>
+        log.info(StopWatch.end('loadFabricjs').toString());
+        StopWatch.start('loadScreenShooter.js');
+    </script>
+    <script src="screenshooter.js">
+    </script>
+    <script>
+        log.info(StopWatch.end('loadScreenShooter.js').toString());
+    </script>
+    <style>
+        #crop-help {
+            position: absolute;
+            left: 90%;
+            top: 5px;
+            z-index: 100000;
+            border-style: solid;
+            border-width: 1px;
+            border-radius: 5px;
+            border-color: #fff;
+            background-color: transparent;
+            box-shadow: 3px 3px 17px 0px rgba(0,0,0,0.4);
+            color: white;
+            text-shadow: 1px 1px #363636;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 5px;
+
+        }
+        #crop-help div {
+        }
+    </style>
+</head>
+<body id="body" scroll="no" style="overflow: hidden">
+<canvas id="screen-canvas"></canvas>
+<div id="buttons-panel" class="panel" style="display:none">
+    <div class="panel-top"></div>
+    <div class="panel-bottom">
+        <input type="color" value="#BC0000" id="color-input" list="colors">
+        <datalist id="colors">
+            <option>#BC0000</option><option>#FFFFFF</option><option>#FF0000</option><option>#00FF00</option><option>#0000FF</option>
+            <option>#e69138</option><option>#f1c232</option><option>#6aa84f</option><option>#45818e</option><option>#3d85c6</option>
+            <option>#674ea7</option><option>#a64d79</option><option>#900</option><option>#b45f06</option><option>#bf9000</option>
+            <option>#38761d</option><option>#134f5c</option><option>#0b5394</option><option>#351c75</option><option>#741b47</option>
+            <option>#600</option><option>#783f04</option><option>#7f6000</option><option>#274e13</option><option>#0c343d</option>
+            <option>#073763</option><option>#20124d</option><option>#4c1130</option><option>#444</option><option>#000</option>
+            <option>#444</option><option>#666</option><option>#999</option><option>#ccc</option><option>#eee</option>
+            <option>#f3f3f3</option><option>#fff</option><option>#f00</option><option>#f90</option><option>#ff0</option>
+            <option>#0f0</option><option>#0ff</option><option>#00f</option><option>#90f</option><option>#f0f</option>
+            <option>#f4cccc</option><option>#fce5cd</option><option>#fff2cc</option><option>#d9ead3</option><option>#d0e0e3</option>
+            <option>#cfe2f3</option><option>#d9d2e9</option><option>#ead1dc</option><option>#ea9999</option><option>#f9cb9c</option>
+            <option>#ffe599</option><option>#b6d7a8</option><option>#a2c4c9</option><option>#9fc5e8</option><option>#b4a7d6</option>
+            <option>#d5a6bd</option><option>#e06666</option><option>#f6b26b</option><option>#ffd966</option><option>#93c47d</option>
+            <option>#76a5af</option><option>#6fa8dc</option><option>#8e7cc3</option><option>#c27ba0</option><option>#c00</option>
+        </datalist>
+        <div class="range-wrapper">
+            <input type="range" min="1" max="15" value="3" id="size-input">
+        </div>
+        <div class="panel-btn-save">
+            <a href="" class="btn-save ico-clipboard"></a>
+            <a href="" class="btn-save ico-local"></a>
+            <a href="" class="btn-save ico-cloud">Сохранить</a>
+        </div>
+    </div>
+</div>
+<div id="crop-help" onmouseup="this.style.display = 'none'" onmousemove="this.style.display = 'none'">
+    <div><b>ESC</b> - отмена</div>
+    <div><b>ENTER</b> - весь экран</div>
+    <div><b>SPACE</b> - предыдущая область</div>
+</div>
+</body>
+</html>
